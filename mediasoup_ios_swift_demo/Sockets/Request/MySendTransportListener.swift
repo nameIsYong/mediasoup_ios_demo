@@ -2,7 +2,7 @@
 //  MySendTransportListener.swift
 //  PodDemo3
 //
-//  Created by KOYO on 2022/11/7.
+//  Created by 勇胡 on 2022/11/7.
 //
 
 import Foundation
@@ -63,7 +63,7 @@ class MyRecvTransportListener : NSObject, RecvTransportListener{
     func onConnect(_ transport: Transport!, dtlsParameters: String!) {
         let id = transport.getId() ?? ""
         print("\r\n *********MyRecvTransportListener  onConnect ****** \r\n:\(String(describing: transport.getId())),\(Thread.current)\r\n")
-        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now()+2) {
+        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now()+0.5) {
             self.helper.onConnectCallBack(transportId: id, dtlsParameters: dtlsParameters)
           }
 
@@ -93,3 +93,4 @@ class ConsumerHandler:NSObject,ConsumerListener{
         print("ConsumerHandler--onTransportClose-")
     }
 }
+
