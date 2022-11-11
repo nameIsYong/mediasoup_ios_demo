@@ -36,6 +36,7 @@ class RequestHelper : NSObject{
     var totalConsumers:[String:Consumer] = [:]
     private var videoCapture:RTCCameraVideoCapturer?
     private var isStaredVideo = false
+//    private let semaphare = DispatchSemaphore(value: 0)
     
     var consumersInfoAudios:[[String:Any]] = []
     var consumersInfoVideos:[[String:Any]] = []
@@ -84,7 +85,9 @@ class RequestHelper : NSObject{
         onCreateSendTransport()
         onCreateRecvTransport()
         onJoinRoom(device: device)
+        
         startVideoAndAudio()
+//        createConsumerAndResume()
     }
     
     ///通用发送数据接口
@@ -205,11 +208,6 @@ extension RequestHelper{
         
         let message = Message(socket: socket, messageId: ActionEventID.kJoinID)
         let _ = message.send(method: ActionEvent.join, data: data)
-        //房间里已经正在通话的人
-        //        let peers = result.array("peers")
-        //        for peer in peers{
-        //            self.peersIDs.append(peer.strValue("id"))
-        //        }
         self.joinedRoom = true
     }
     
@@ -231,17 +229,21 @@ extension RequestHelper{
         
         let message = Message(socket: socket, messageId:SocketUtil.getSocketKey())
         let _ = message.send(method: ActionEvent.connectWebRtcTransport, data: params)
-        
+//        semaphare.signal()
     }
     
     ///测试管道
     public func sendResponse(requestId:Int){
-        let sendData:JSON = ["response":NSNumber.init(value: true),
-                             "id":requestId,
-                             "ok" :NSNumber.init(value: true),
-                             "data":""]
-        print("发送空数据:\(sendData.description)")
-        socket?.write(string: sendData.description, completion: nil)
+        DispatchQueue.global().async {
+            let sendData:JSON = ["response":NSNumber.init(value: true),
+                                 "id":requestId,
+                                 "ok" :NSNumber.init(value: true),
+                                 "data":""]
+            print("发送空数据:\(sendData.description)")
+            self.socket?.write(string: sendData.description, completion: nil)
+         }
+
+        
     }
 }
 
@@ -269,29 +271,11 @@ extension RequestHelper{
 
 extension RequestHelper{
     func createConsumerAndResume(){
-        self.consumerHandler = ConsumerHandler()
         
+        self.consumerHandler = ConsumerHandler()
         print("已存在视频数量:\(self.consumersInfoVideos.count)")
         print("已存在音频数量:\(self.consumersInfoVideos.count)")
-        
-        for consumerAudio in self.consumersInfoAudios{
-            //音频
-            let requestIdA = consumerAudio.intValue("requestId")
-            let kindA = consumerAudio.strValue("kind")
-            let idA = consumerAudio.strValue("id")
-            let producerIdA = consumerAudio.strValue("producerId")
-            let rtpParametersA = consumerAudio.dictionary("rtpParameters")
-            let paramsJsonA = JSON(rtpParametersA).description
-            print("\r\n准备循环创建consume 音频")
-            guard let consumer = self.recvTransport?.consume(self.consumerHandler, id: idA, producerId: producerIdA, kind: kindA, rtpParameters:paramsJsonA) else{
-                print("订阅新用户音频失败")
-                return
-            }
-            self.totalConsumers[consumer.getId()] = consumer
-            self.sendResponse(requestId: requestIdA)
-            print("\r\n完成循环创建consume 音频")
-
-        }
+       
         
         for consumerVideo in self.consumersInfoVideos{
             //视频
@@ -301,24 +285,46 @@ extension RequestHelper{
             let producerIdV = consumerVideo.strValue("producerId")
             let rtpParametersV = consumerVideo.dictionary("rtpParameters")
             let rtp = JSON(rtpParametersV).description
-            let appData = JSON(consumerVideo.dictionary("appData")).description
             let peerId = consumerVideo.strValue("peerId")
-            
-            print("\r\n准备循环创建(\(peerId))的consume --视频")
-            guard let consumer = self.recvTransport?.consume(self.consumerHandler, id: idV, producerId: producerIdV, kind: kindV, rtpParameters:rtp,appData: appData)else{
+
+
+            print("\r\n 准备循环订阅视频频(\(peerId))  id：\(idV),producerId:\(producerIdV)  \(Thread.current)\r\n")
+
+            guard let consumer = self.recvTransport?.consume(self.consumerHandler, id: idV, producerId: producerIdV, kind: kindV, rtpParameters:rtp)else{
                 print("订阅新用户视频失败")
                 return
             }
+
             self.totalConsumers[consumer.getId()] = consumer
-            
+            print("\r\n完成循环订阅视频，准备发空数据\(Thread.current)\r\n")
             self.delegate?.onNewConsumerUpdateUI(helper: self, consumer: consumer)
             self.sendResponse(requestId: requestIdV)
-            print("\r\n完成循环创建consume ---视频\r\n")
         }
+        
+        for consumerAudio in self.consumersInfoAudios{
+            //音频
+            let requestIdA = consumerAudio.intValue("requestId")
+            let kindA = consumerAudio.strValue("kind")
+            let idA = consumerAudio.strValue("id")
+            let producerIdA = consumerAudio.strValue("producerId")
+            let rtpParametersA = consumerAudio.dictionary("rtpParameters")
+            let paramsJsonA = JSON(rtpParametersA).description
+            let peerId = consumerAudio.strValue("peerId")
+
+            print("\r\n准备循环订阅音频(\(peerId))  id：\(idA),producerId:\(producerIdA)  \(Thread.current)\r\n")
+
+            guard let consumer = self.recvTransport?.consume(self.consumerHandler, id: idA, producerId: producerIdA, kind: kindA, rtpParameters:paramsJsonA) else{
+                print("订阅新用户音频失败")
+                return
+            }
+
+            print("\r\n 准备发送空数据 \r\n")
+            self.totalConsumers[consumer.getId()] = consumer
+            self.sendResponse(requestId: requestIdA)
+            print("\r\n完成循环创建consume 音频\(Thread.current)")
+        }
+        
     }
-    
-    
-    
     
     ///开启音视频4
     private func startVideoAndAudio() {
@@ -355,9 +361,7 @@ extension RequestHelper{
         guard let format = RTCCameraVideoCapturer.supportedFormats(for: cameraDevice).last else{return}
         
         let fps:Int = Int(format.videoSupportedFrameRateRanges.first?.maxFrameRate ?? 30)
-        
         videoCapture?.startCapture(with: cameraDevice, format:format, fps: fps)
-        
         guard let videoTrack = peerConnectionFactory?.videoTrack(with: videoSource, trackId: ARDEmu.kARDVideoTrackId) else{return}
         videoTrack.isEnabled = true
         guard let localVideoView = delegate?.getLocalRanderView(helper: self) else{return}
@@ -404,10 +408,10 @@ extension RequestHelper:WebSocketDelegate{
     func didReceive(event: WebSocketEvent, client: WebSocket) {
         //        print("RequestHelper收到消息。。\(event)")
         switch event {
-        case .connected(let dictionary):
+        case .connected(_):
             //            print("链接成功:\(dictionary)")
             self.onSocketConnected()
-        case .disconnected(let string, let uInt16):
+        case .disconnected(let string,_):
             print("已断开:\(string)")
             
         case .text(let string):
@@ -446,11 +450,11 @@ extension RequestHelper:WebSocketDelegate{
         if method == "activeSpeaker" || method == "downlinkBwe"{
             return
         }
-        if method == "newConsumer"{
+//        if method == "newConsumer"{
             print("\r 收到数据： (\(message) \r\n")
-        }
+//        }
         //        if requestId != ActionEventID.kConnectID{
-        print("\r 收到数据method： (\(method) \r\n")
+//        print("\r 收到数据id:\(requestId)  method:(\(method) \r\n")
         //        }
         
         NotificationCenter.default.post(name: NSNotification.Name("kOnRecveMessage"), object: message)

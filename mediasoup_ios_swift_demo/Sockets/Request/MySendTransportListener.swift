@@ -23,7 +23,7 @@ class MySendTransportListener:NSObject,SendTransportListener{
     
     //管道创建成功回调
     func onConnect(_ transport: Transport!, dtlsParameters: String!) {
-        print("\r\n ********SendTransportListener onConnect ******\r\n \(transport.getId()!)\r\n")
+        print("\r\n ********SendTransportListener onConnect \(Thread.current)\r\n \(transport.getId()!)\r\n")
         self.dtlsParameters = dtlsParameters
     }
     
@@ -35,7 +35,7 @@ class MySendTransportListener:NSObject,SendTransportListener{
     }
     
     func onProduce(_ transport: Transport!, kind: String!, rtpParameters: String!, appData: String!, callback: ((String?) -> Void)!) {
-        print("\r\n ********MySendTransportListener onProduce ******** \r\n \(transport.getId()!),\(kind!), rtpParameters:\(rtpParameters!)\r\n")
+        print("\r\n ********MySendTransportListener(onProduce) \r\n \(transport.getId()!),\(kind!),\(Thread.current), rtpParameters:\(rtpParameters!)\r\n")
         let result = self.helper.onProduceCallBack(transportId: transport.getId(), kind: kind, rtpParameters: rtpParameters)
         callback?(result.strValue("id"))
         
@@ -62,16 +62,16 @@ class MyRecvTransportListener : NSObject, RecvTransportListener{
     
     func onConnect(_ transport: Transport!, dtlsParameters: String!) {
         let id = transport.getId() ?? ""
-        print("\r\n *********MyRecvTransportListener  onConnect ****** \r\n:\(String(describing: transport.getId())),\(Thread.current)\r\n")
-        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now()+0.5) {
+       
+//        DispatchQueue.global().asyncAfter(deadline: DispatchTime.now()+2.5) {
+            print("\r\n *********MyRecvTransportListener(onConnect) \r\n:\(id),\(Thread.current)\r\n")
             self.helper.onConnectCallBack(transportId: id, dtlsParameters: dtlsParameters)
-          }
+//         }
 
-        
     }
     
     func onConnectionStateChange(_ transport: Transport!, connectionState: String!) {
-        print("MyRecvTransportListener   onConnectionStateChange:\(String(describing: connectionState))")
+        print("MyRecvTransportListener  onConnectionStateChange:\(String(describing: connectionState))  (\(transport.getId())) ")
         if connectionState.contains("disconnected"){
             transport.close()
         }

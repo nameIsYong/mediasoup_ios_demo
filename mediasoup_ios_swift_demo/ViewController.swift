@@ -21,20 +21,15 @@ class ViewController: UIViewController {
     //远端
     @IBOutlet weak var remoteVideoBGView: UIView!
     
-    private var kSocketIp = "192.168.5.93"
+    private var kSocketIp = "v3demo.mediasoup.org"//"192.168.5.93"//
     private let roomId = "9528"
-    private let peerId = "thisIsMyID"
+    private let peerId = "thisIsMyID6"
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
     }
   
-    
-    func test(){
-        
-    }
-    
     @IBAction func onConnect(_ sender: UIButton) {
         //69  93
         print("开始连接。。。")
@@ -68,7 +63,8 @@ extension ViewController:RequestHelperDelegate{
             DispatchQueue.main.async {
                 for view in self.remoteVideoBGView.subviews{
                     print("删除子控件。。\(view)")
-                    view.removeFromSuperview()
+//                    view.removeFromSuperview()
+                    return
                 }
                 print("\r\n更新UI \(Thread.current)")
                 let videoView = RTCEAGLVideoView(frame: self.remoteVideoBGView.bounds)

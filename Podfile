@@ -6,7 +6,6 @@ target 'mediasoup_ios_swift_demo' do
   use_frameworks!
 
   # Pods for mediasoup_ios_swift_demo
-  pod 'SocketRocket'
   pod 'Starscream'
   pod 'SwiftyJSON'
   pod "mediasoup_ios_client"
